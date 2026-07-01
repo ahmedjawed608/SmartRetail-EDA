@@ -134,22 +134,8 @@ if 'Sales' in df.columns:
     plt.savefig('eda_plots/sales_over_time.png')
     plt.close()
     print("Time series plot saved.")
-#Step 9: Regional Profit
 
-if 'Region' in df.columns and 'Profit' in df.columns:
-    region_profit = df.groupby('Region')['Profit'].sum()
-    region_profit = region_profit.clip(lower=0)
-    
-    plt.figure(figsize=(10, 8))
-    plt.pie(region_profit, labels=region_profit.index, autopct='%1.1f%%', 
-            startangle=90, colors=sns.color_palette('pastel'))
-    plt.title('Profit Share by Region', fontsize=16, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig('eda_plots/profit_share_by_region_pie.png')
-    plt.close()
-    print("Pie chart for 'Profit Share by Region' saved to 'eda_plots/profit_share_by_region_pie.png'")
-
-# Step 10: Correlation matrix
+# Step 9: Correlation matrix
 print("\n--- Correlation Analysis ---")
 df_numeric = df.select_dtypes(include=np.number)
 correlation_matrix = df_numeric.corr()
@@ -190,31 +176,47 @@ if 'Sales' in df.columns and 'Profit' in df.columns:
     plt.close()
     print("Sales vs Profit scatter plot saved.")
 
-# Step 11: Summary report with real computed values
-print("\n--- EDA Summary ---")
-category_sales = df.groupby('Category')['Sales'].sum()
-top_category =category_sales.idxmax()
-top_category_value = category_sales.sum().max()
-sales_skew = df['Sales_original'].skew() if 'Sales_original' in df.columns else df['Sales'].skew()
-most_common_category = df['Category'].value_counts().idxmax()
-most_common_region = df['Region'].value_counts().idxmax() if df['Region'].notna().any() else 'N/A'
-corr_sales_profit = df_numeric.corr().loc['Sales', 'Profit'] if 'Sales' in df_numeric and 'Profit' in df_numeric else None
+# Step 11: Key Insights and Business Recommendations
+df['MonthName'] = df['Date'].dt.strftime('%B')
+df['DayName'] = df['Date'].dt.day_name()
 
-print("\n### Key Observations:")
-print(f"- Cleaned invalid null strings ('NaN?', 'Null', 'Nan') from Category and Region.")
-print(f"- Sales skewness: {sales_skew:.2f} ({'right-skewed' if sales_skew > 0.5 else 'left-skewed' if sales_skew < -0.5 else 'roughly symmetric'}).")
-print(f"- Outliers clipped using IQR method on Sales, Profit, and Quantity.")
-print(f"- Most frequent category: '{most_common_category}'. Most frequent region: '{most_common_region}'.")
-print(f"- Highest avg sales category: '{top_category}' ({top_category_value:.2f}).")
-if corr_sales_profit is not None:
-    print(f"- Sales vs Profit correlation: {corr_sales_profit:.2f}.")
-print(f"- Extracted Year, Month, DayOfWeek from Date for time-based analysis.")
+category_performance = df.groupby('Category')['Sales'].sum().sort_values(ascending=False)
+cat_profit_performance = df.groupby('Category')['Profit'].sum().sort_values(ascending=False)
+regional_data = df.groupby('Region')['Sales'].sum().sort_values(ascending=False)
+monthly_sales = df.groupby('MonthName')['Sales'].sum().reset_index()
+daily_performance = df.groupby('DayName')['Sales'].sum().sort_values(ascending=False)
+corr_sales_profit = df[['Sales', 'Profit']].corr().loc['Sales', 'Profit']
 
-print("\n### Recommendations:")
-print(f"- Fix null markers at data source level to avoid manual cleaning.")
-print(f"- Prioritize '{top_category}' in marketing — highest average sales.")
-print(f"- Use Month and DayOfWeek features to analyze seasonal and weekly sales patterns.")
-print(f"- Review pre-clip outlier values — some may be genuine high-value transactions.")
-print(f"- Next step: build a sales forecasting model using time-based features.")
+print("\n=== KEY INSIGHTS AND RECOMMENDATIONS ===")
+
+print("\n KEY FINDINGS:")
+print("1. Top Performing Category (Sales):", category_performance.index[0],
+      f"— ${category_performance.iloc[0]:,.2f} total sales")
+print("2. Top Performing Category (Profit):", cat_profit_performance.index[0],
+      f"— ${cat_profit_performance.iloc[0]:,.2f} total profit")
+print("3. Best Performing Region:", regional_data.index[0],
+      f"— ${regional_data.iloc[0]:,.2f} total sales")
+print("4. Weakest Region:", regional_data.index[-1],
+      f"— ${regional_data.iloc[-1]:,.2f} total sales")
+print("5. Highest Sales Month:", monthly_sales.loc[monthly_sales['Sales'].idxmax(), 'MonthName'],
+      f"— ${monthly_sales['Sales'].max():,.2f}")
+print("6. Best Day of Week:", daily_performance.index[0],
+      f"— ${daily_performance.iloc[0]:,.2f} total sales")
+print("7. Total Annual Sales:  ${:,.2f}".format(df['Sales'].sum()))
+print("8. Total Annual Profit: ${:,.2f}".format(df['Profit'].sum()))
+
+print("\n BUSINESS RECOMMENDATIONS:")
+print(f"1. Focus marketing budget on '{category_performance.index[0]}' — it drives the highest revenue across all categories.")
+print(f"2. '{regional_data.index[-1]}' region is underperforming by ${regional_data.iloc[0] - regional_data.iloc[-1]:,.2f} vs top region — investigate pricing or distribution issues there.")
+print(f"3. Run promotions and stock up inventory before {monthly_sales.loc[monthly_sales['Sales'].idxmax(), 'MonthName']} — it is the peak sales month.")
+print(f"4. Schedule flash sales or discounts on {daily_performance.index[0]}s — highest sales day of the week.")
+print(f"5. Sales and Profit have a {corr_sales_profit:.2f} correlation — volume-driving strategies are effective since higher sales lead to higher profit.")
+print(f"6. '{cat_profit_performance.index[-1]}' has the lowest profit — review its pricing margin or cost structure.")
+
+print("\n PROFITABILITY ANALYSIS:")
+profit_margin = (df['Profit'].sum() / df['Sales'].sum()) * 100
+print(f"Overall Profit Margin: {profit_margin:.2f}%")
+print(f"Best profit category:  '{cat_profit_performance.index[0]}' — ${cat_profit_performance.iloc[0]:,.2f}")
+print(f"Worst profit category: '{cat_profit_performance.index[-1]}' — ${cat_profit_performance.iloc[-1]:,.2f}")
 
 print("\nEDA complete. All plots saved in 'eda_plots/'.")
